@@ -26,6 +26,7 @@ object KeystoreHelper {
             )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
             .build()
         )
         return keyGenerator.generateKey()
@@ -35,7 +36,7 @@ object KeystoreHelper {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
         val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
-        val encrypted = Base64.encodeToString(cipher.doFinal(data.toByteArray()), Base64.NO_WRAP)
+        val encrypted = Base64.encodeToString(cipher.doFinal(data.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
         return "$iv]$encrypted"
     }
 
@@ -43,12 +44,13 @@ object KeystoreHelper {
         if (!data.contains("]")) return ""
         try {
             val parts = data.split("]")
+            if (parts.size != 2) return ""
             val iv = Base64.decode(parts[0], Base64.NO_WRAP)
             val encrypted = Base64.decode(parts[1], Base64.NO_WRAP)
             
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), GCMParameterSpec(128, iv))
-            return String(cipher.doFinal(encrypted))
+            return String(cipher.doFinal(encrypted), Charsets.UTF_8)
         } catch (_: Exception) {
             return ""
         }

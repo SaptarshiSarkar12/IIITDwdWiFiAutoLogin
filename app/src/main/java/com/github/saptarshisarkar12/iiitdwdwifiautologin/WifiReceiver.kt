@@ -3,66 +3,59 @@ package com.github.saptarshisarkar12.iiitdwdwifiautologin
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class WifiReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        // goAsync() prevents Android from killing the background process
         val pendingResult = goAsync()
 
-        Thread {
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                val activeNetwork = cm.activeNetwork
+                val capabilities = cm.getNetworkCapabilities(activeNetwork)
 
-                // CRITICAL FIX: We must use the deprecated connectionInfo here to bypass Android 12+ SSID redaction
-                @Suppress("DEPRECATION")
-                val wifiInfo = wifiManager.connectionInfo
+                val wifiInfo = capabilities?.transportInfo as? WifiInfo
                 val ssid = wifiInfo?.ssid?.replace("\"", "")
+                    ?: getLegacySsid(context)
 
                 if (ssid == "IIIT DHARWAD-STUDENT") {
                     performAutoLogin(context)
                 }
             } finally {
-                pendingResult.finish() // Tells the OS we are done
+                pendingResult.finish()
             }
-        }.start()
+        }
     }
 
-    private fun performAutoLogin(context: Context) {
-        try {
-            val prefs = context.getSharedPreferences("secure_login_prefs", Context.MODE_PRIVATE)
-            val encUser = prefs.getString("username", "") ?: ""
-            val encPass = prefs.getString("password", "") ?: ""
+    @Suppress("DEPRECATION")
+    private fun getLegacySsid(context: Context): String? {
+        return try {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            wifiManager.connectionInfo?.ssid?.replace("\"", "")
+        } catch (_: Exception) {
+            null
+        }
+    }
 
-            if (encUser.isEmpty() || encPass.isEmpty()) return
+    private suspend fun performAutoLogin(context: Context) {
+        val prefs = context.getSharedPreferences("secure_login_prefs", Context.MODE_PRIVATE)
+        val encUser = prefs.getString("username", "") ?: ""
+        val encPass = prefs.getString("password", "") ?: ""
 
-            val username = KeystoreHelper.decrypt(encUser)
-            val password = KeystoreHelper.decrypt(encPass)
+        if (encUser.isEmpty() || encPass.isEmpty()) return
 
-            val url = URL("http://172.16.16.16:8090/login.xml")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            conn.doOutput = true
+        val username = KeystoreHelper.decrypt(encUser)
+        val password = KeystoreHelper.decrypt(encPass)
 
-            val encUserUrl = URLEncoder.encode(username, "UTF-8")
-            val encPassUrl = URLEncoder.encode(password, "UTF-8")
-            val payload = "mode=191&username=$encUserUrl&password=$encPassUrl&a=1786430697920&producttype=0"
-
-            OutputStreamWriter(conn.outputStream).use { writer ->
-                writer.write(payload)
-                writer.flush()
-            }
-
-            conn.responseCode
-            conn.disconnect()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (username.isNotEmpty() && password.isNotEmpty()) {
+            LoginHelper.performLogin(context, username, password)
         }
     }
 }

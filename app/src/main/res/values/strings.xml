@@ -3,4 +3,5 @@
     <string name="unamebtnHint">Username</string>
     <string name="passbtnHint">Password</string>
     <string name="savebtnText">Save</string>
+    <string name="loginbtnText">Login Now</string>
 </resources>
