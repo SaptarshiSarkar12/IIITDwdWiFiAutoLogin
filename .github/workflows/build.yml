@@ -44,7 +44,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        run: |
+          ./gradlew assembleRelease
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/IIITDwdWiFiAutoLogin.apk
 
       - name: Cleanup Keystore
         run: rm -f app/release-keystore.jks
