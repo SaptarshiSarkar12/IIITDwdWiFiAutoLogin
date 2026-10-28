@@ -49,7 +49,7 @@ jobs:
         run: rm -f app/release-keystore.jks
 
       - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-apk
           path: app/build/outputs/apk/release/*.apk
