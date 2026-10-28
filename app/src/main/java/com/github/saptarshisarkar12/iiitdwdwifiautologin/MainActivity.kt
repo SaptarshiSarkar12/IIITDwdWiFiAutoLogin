@@ -2,12 +2,15 @@ package com.github.saptarshisarkar12.iiitdwdwifiautologin
 
 import android.Manifest
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Bundle
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -15,6 +18,8 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,7 +32,6 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences("secure_login_prefs", MODE_PRIVATE)
         val etUsername = findViewById<EditText>(R.id.etUsername)
         val etPassword = findViewById<EditText>(R.id.etPassword)
-        val btnSave = findViewById<Button>(R.id.btnSave)
 
         val savedUser = sharedPreferences.getString("username", "") ?: ""
         val savedPass = sharedPreferences.getString("password", "") ?: ""
@@ -37,46 +41,39 @@ class MainActivity : ComponentActivity() {
 
         val btnLogin = findViewById<Button>(R.id.btnLogin)
 
-        btnSave.setOnClickListener {
-            val user = etUsername.text.toString().trim()
-            val pass = etPassword.text.toString().trim()
-
-            if (user.isNotEmpty() && pass.isNotEmpty()) {
-                sharedPreferences.edit {
-                    putString("username", KeystoreHelper.encrypt(user))
-                    putString("password", KeystoreHelper.encrypt(pass))
-                }
-                Toast.makeText(this, "Credentials securely saved", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Fields cannot be empty", Toast.LENGTH_SHORT).show()
-            }
-        }
-
         btnLogin.setOnClickListener {
             val user = etUsername.text.toString().trim()
             val pass = etPassword.text.toString().trim()
 
-            if (user.isNotEmpty() && pass.isNotEmpty()) {
-                sharedPreferences.edit {
-                    putString("username", KeystoreHelper.encrypt(user))
-                    putString("password", KeystoreHelper.encrypt(pass))
-                }
-            }
+            if (!saveCredentialsIfValid(sharedPreferences, user, pass)) return@setOnClickListener
 
             btnLogin.isEnabled = false
             Toast.makeText(this, "Attempting login...", Toast.LENGTH_SHORT).show()
 
-            Thread {
-                val result = LoginHelper.performLogin(this)
-                runOnUiThread {
-                    btnLogin.isEnabled = true
-                    when (result) {
-                        is LoginResult.Success -> Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
-                        is LoginResult.Failure -> Toast.makeText(this, result.error, Toast.LENGTH_LONG).show()
-                    }
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+
+            lifecycleScope.launch {
+                val result = LoginHelper.performLogin(this@MainActivity, user, pass)
+                btnLogin.isEnabled = true
+                when (result) {
+                    is LoginResult.Success -> Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                    is LoginResult.Failure -> Toast.makeText(this@MainActivity, result.error, Toast.LENGTH_LONG).show()
                 }
             }.start()
         }
+    }
+
+    private fun saveCredentialsIfValid(sharedPreferences: SharedPreferences, user: String, pass: String): Boolean {
+        if (user.isEmpty() || pass.isEmpty()) {
+            Toast.makeText(this, "Fields cannot be empty", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        sharedPreferences.edit {
+            putString("username", KeystoreHelper.encrypt(user))
+            putString("password", KeystoreHelper.encrypt(pass))
+        }
+        return true
     }
 
     private fun checkAndRequestPermissions() {

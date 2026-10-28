@@ -1,43 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="32dp"
     android:gravity="center"
-    tools:ignore="VisualLintBounds,TextContrastCheck"> 
+    android:orientation="vertical"
+    android:padding="32dp">
 
     <EditText
         android:id="@+id/etUsername"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:hint="@string/unamebtnHint"
-        android:inputType="textNoSuggestions"
+        android:layout_gravity="center_horizontal"
+        android:minWidth="320dp"
+        android:maxWidth="488dp"
         android:autofillHints="username"
-        android:minHeight="48dp" /> 
+        android:hint="@string/unamebtnHint"
+        android:inputType="text"
+        android:minHeight="48dp" />
 
     <EditText
         android:id="@+id/etPassword"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:hint="@string/passbtnHint"
-        android:inputType="textPassword"
+        android:layout_gravity="center_horizontal"
+        android:minWidth="320dp"
+        android:maxWidth="488dp"
         android:layout_marginTop="16dp"
         android:autofillHints="password"
-        android:minHeight="48dp" /> 
-
-    <Button
-        android:id="@+id/btnSave"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/savebtnText"
-        android:layout_marginTop="32dp" />
+        android:hint="@string/passbtnHint"
+        android:inputType="textPassword"
+        android:minHeight="48dp" />
 
     <Button
         android:id="@+id/btnLogin"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/loginbtnText"
-        android:layout_marginTop="12dp" />
+        android:layout_gravity="center_horizontal"
+        android:minWidth="280dp"
+        android:maxWidth="320dp"
+        android:minHeight="48dp"
+        android:layout_marginTop="32dp"
+        android:text="@string/loginbtnText" />
 </LinearLayout>
