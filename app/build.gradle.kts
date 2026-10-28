@@ -17,11 +17,11 @@ android {
     }
 
     val isCi = System.getenv("GITHUB_ACTIONS") == "true"
-
-    signingConfigs {
-        if (isCi) {
+    val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    if (keystorePath != null) {
+        signingConfigs {
             create("release") {
-                storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
