@@ -2,32 +2,63 @@ name: Build Release APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+    paths:
+      - app/**
+      - build.gradle.kts
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PATH: app/release-keystore.jks
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+    steps:
+      - uses: actions/checkout@v7
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: oracle
+          java-version: 17
           cache: gradle
 
-      - name: Grant execute permission for gradlew
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep 'versionName =' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/release-keystore.jks
+
+      - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-      - name: Upload Debug APK
+      - name: Cleanup Keystore
+        run: rm -f app/release-keystore.jks
+
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: release-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Create Release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          gh release create v${{ steps.version.outputs.version }} app/build/outputs/apk/release/*.apk --title "v${{ steps.version.outputs.version }}" --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
