@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.net.URLEncoder
 
 sealed class LoginResult {
@@ -19,18 +19,23 @@ object LoginHelper {
     suspend fun performLogin(context: Context, username: String, password: String): LoginResult {
         return withContext(Dispatchers.IO) {
             if (username.isEmpty() || password.isEmpty()) {
-                LoginResult.Failure("Failed to decrypt credentials from Keystore.")
+                return@withContext LoginResult.Failure("Failed to decrypt credentials from Keystore.")
             }
             try {
-                val url = URL("http://172.16.16.16:8090/login.xml")
+                val url = URI.create("http://172.16.16.16:8090/login.xml").toURL()
 
                 // Prefer routing directly through the Wi-Fi network interface
                 // to prevent Mobile Data from intercepting local campus requests
                 val connectivityManager =
                     context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-                val wifiNetwork = connectivityManager.allNetworks.firstOrNull { network ->
-                    val capabilities = connectivityManager.getNetworkCapabilities(network)
-                    capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+
+                val activeNetwork = connectivityManager.activeNetwork
+                val activeCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+
+                val wifiNetwork = if (activeCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+                    activeNetwork
+                } else {
+                    null
                 }
 
                 val conn = if (wifiNetwork != null) {
@@ -67,8 +72,8 @@ object LoginHelper {
 
                 val portalMessage = if (responseText.isNotEmpty()) {
                     val match = Regex(
-                        "<message>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?</message>",
-                        RegexOption.DOT_MATCHES_ALL
+                        "<message>(?:<!\\[CDATA\\[)?(.*?)(?:]]>)?</message>",
+                        RegexOption.DOT_MATCHES_ALL,
                     ).find(responseText)
                     match?.groupValues?.get(1)?.trim()
                         ?.replace("{username}", username, ignoreCase = true)
@@ -89,7 +94,6 @@ object LoginHelper {
                         ?: "Gateway error: HTTP $responseCode"
                     LoginResult.Failure(displayError)
                 }
-                LoginResult.Success("Login Successful")
             } catch (e: Exception) {
                 LoginResult.Failure("Failed to connect to gateway: ${e.localizedMessage ?: e.message}")
             }

@@ -2,7 +2,6 @@ package com.github.saptarshisarkar12.iiitdwdwifiautologin
 
 import android.Manifest
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -51,7 +50,8 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Attempting login...", Toast.LENGTH_SHORT).show()
 
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+            val windowToken = currentFocus?.windowToken ?: btnLogin.windowToken
+            imm.hideSoftInputFromWindow(windowToken, 0)
 
             lifecycleScope.launch {
                 val result = LoginHelper.performLogin(this@MainActivity, user, pass)
@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                     is LoginResult.Success -> Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
                     is LoginResult.Failure -> Toast.makeText(this@MainActivity, result.error, Toast.LENGTH_LONG).show()
                 }
-            }.start()
+            }
         }
     }
 
@@ -77,33 +77,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        val fineLoc =
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val fineLoc = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
         if (fineLoc != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 1
             )
-        } else {
-            val bgLoc = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_BACKGROUND_LOCATION
-            )
-            if (bgLoc != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
-                    2
-                )
-            }
         }
     }
 
     private fun setupNetworkListener() {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
 
-        // clearCapabilities() ensures the callback fires for captive portals
         val request = NetworkRequest.Builder()
             .clearCapabilities()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -115,7 +101,7 @@ class MainActivity : ComponentActivity() {
 
         val pendingIntent = PendingIntent.getBroadcast(
             this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         cm.registerNetworkCallback(request, pendingIntent)
